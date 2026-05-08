@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>うたプリ ソロ曲くじ</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+        #app-container {
+            width: 100%;
+            max-width: 500px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            font-size: 1.4em;
+            border-bottom: 2px solid #e91e63;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .group-section {
+            background: #fdfdfd;
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+        .group-header {
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            display: flex;
+            align-items: center;
+            font-size: 1.1em;
+            color: #444;
+        }
+        .idol-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        label {
+            cursor: pointer;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            background: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        input[type="checkbox"] {
+            margin-right: 5px;
+            transform: scale(1.1);
+        }
+        .btn-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 15px;
+            transition: transform 0.1s;
+            color: white;
+        }
+        button:active { transform: scale(0.95); }
+        .btn-draw { background: #e91e63; grid-column: span 2; font-size: 18px; padding: 15px; box-shadow: 0 4px #ad1457; margin-bottom: 5px; }
+        .btn-hist { background: #2196f3; box-shadow: 0 4px #1976d2; }
+        .btn-reset { background: #9e9e9e; box-shadow: 0 4px #757575; }
+
+        #counter {
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #555;
+            font-size: 1.1em;
+            background: #eee;
+            padding: 8px;
+            border-radius: 10px;
+        }
+
+        /* モーダル共通 */
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+            backdrop-filter: blur(3px);
+        }
+        .modal-base {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        /* 結果モーダル */
+        #modal {
+            width: 85%;
+            max-width: 340px;
+            padding: 40px 20px;
+            border-radius: 25px;
+            text-align: center;
+            border: 5px solid #fff;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+        .outline-text {
+            text-shadow: 2px 2px 0 #fff, -2px 2px 0 #fff, 2px -2px 0 #fff, -2px -2px 0 #fff, 0 0 8px rgba(0,0,0,0.2);
+            font-weight: 900;
+            line-height: 1.4;
+        }
+        
+        /* 履歴モーダル */
+        #history-modal {
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            padding: 20px;
+            background: #fff;
+            border-radius: 20px;
+            overflow-y: auto;
+        }
+
+        .close-btn {
+            margin-top: 25px;
+            padding: 10px 30px;
+            border-radius: 25px;
+            border: none;
+            background: #fff;
+            color: #333;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <h2>歌唱曲 抽選システム</h2>
+    
+    <div id="groups-container"></div>
+
+    <div class="btn-container">
+        <button class="btn-draw" onclick="drawSong()">抽選する</button>
+        <button class="btn-hist" onclick="showHistory()">履歴</button>
+        <button class="btn-reset" onclick="resetApp()">リセット</button>
+    </div>
+
+    <div id="counter">残り 0曲 ／ 全 0曲</div>
+</div>
+
+<div id="overlay" onclick="closeAllModals()"></div>
+
+<!-- 抽選結果モーダル -->
+<div id="modal" class="modal-base">
+    <div id="modal-content"></div>
+    <button id="modal-close-btn" class="close-btn" onclick="closeModal()">閉じる</button>
+</div>
+
+<!-- 履歴モーダル -->
+<div id="history-modal" class="modal-base">
+    <h3 style="text-align:center; border-bottom:1px solid #ddd; padding-bottom:10px;">抽選履歴</h3>
+    <div id="history-content" style="line-height:2;"></div>
+    <div style="text-align:center;">
+        <button onclick="closeHistory()" style="background:#444; margin-top:20px; width:100px;">閉じる</button>
+    </div>
+</div>
+
+<script>
+const allSongs = [{"アイドル":"音也","楽曲":"TRUST☆MY DREAM","選曲番号":"139645","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"虹色☆OVER DRIVE!","選曲番号":"102706","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"BRAND NEW MELODY","選曲番号":"110022","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"Over the Rainbow","選曲番号":"109888","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"SMILE MAGIC","選曲番号":"725335","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"HORIZON","選曲番号":"725336","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"木漏れ日ダイヤモンド","選曲番号":"673969","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"Brilliant Days","選曲番号":"691082","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"愛と呼べる木の下で","選曲番号":"440640","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"I am Here.","選曲番号":"440639","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"Ok, Hello World!","選曲番号":"497793","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"POP SHOWER","選曲番号":"497792","グループ":"ST☆RISH"},{"アイドル":"音也","楽曲":"LOVE SONG FOR YOU","選曲番号":"810357","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"騎士のKissは雪より優しく","選曲番号":"127987","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"BLUE×PRISM HEART","選曲番号":"103664","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"Knocking on the mind","選曲番号":"110133","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"Mostフォルテシモ","選曲番号":"110396","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"恋桜","選曲番号":"725338","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"Sanctuary","選曲番号":"725339","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"静炎ブレイブハート","選曲番号":"674987","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"I swear...","選曲番号":"691139","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"真なる旋律は最愛を歌う","選曲番号":"440763","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"HOLY KNIGHT","選曲番号":"440762","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"Snow Ballade","選曲番号":"498315","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"Stay with...","選曲番号":"498314","グループ":"ST☆RISH"},{"アイドル":"真斗","楽曲":"All yours","選曲番号":"812501","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"サザンクロス恋唄","選曲番号":"127983","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"アンドロメダでクチヅケを","選曲番号":"103813","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"オリオンでSHOUT OUT","選曲番号":"110810","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"Top Star Revolution","選曲番号":"110809","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"シリウスへの誓い","選曲番号":"725899","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"☆YELL☆","選曲番号":"725879","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"The New World","選曲番号":"673968","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"Tears in love","選曲番号":"690834","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"月ノ唄","選曲番号":"441789","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"SUKI×SUKIはなまる！","選曲番号":"441790","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"愛をボナペティ♪","選曲番号":"498523","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"With Ding Dong","選曲番号":"498522","グループ":"ST☆RISH"},{"アイドル":"那月","楽曲":"Moon Rain","選曲番号":"810319","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"BELIEVE☆MY VOICE","選曲番号":"139646","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"星屑☆Shall we dance?","選曲番号":"102707","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"七色のコンパス","選曲番号":"111543","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"My Little Little Girl","選曲番号":"111938","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"CRYSTAL TIME","選曲番号":"726670","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"Independence","選曲番号":"726096","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"SECRET LOVER","選曲番号":"674988","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"Be the light!","選曲番号":"689927","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"時のジュエル","選曲番号":"442534","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"Target is you!","選曲番号":"442533","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"TRIGGER CHANCE","選曲番号":"498877","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"PERFECT STORY","選曲番号":"498876","グループ":"ST☆RISH"},{"アイドル":"トキヤ","楽曲":"Intimate Distance","選曲番号":"811023","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"悪魔のKissは炎より激しく","選曲番号":"127622","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"RED HOT×LOVE MINDS","選曲番号":"103665","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"世界の果てまでBelieve Heart","選曲番号":"110356","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"Dear...Burning my Lady!","選曲番号":"110355","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"オレンジラプソディ","選曲番号":"725787","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"FREEDOM","選曲番号":"725737","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"Mellow×2 Chu","選曲番号":"674545","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"Give Me True Love","選曲番号":"690550","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"恋から愛へ...そして未来","選曲番号":"443542","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"Rose Rose Romance","選曲番号":"443486","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"Ready to be a Lady","選曲番号":"499396","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"DREAM TALE","選曲番号":"499395","グループ":"ST☆RISH"},{"アイドル":"レン","楽曲":"Alive in yours","選曲番号":"812917","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"オレサマ愛歌","選曲番号":"100183","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"コズミックRUNNER","選曲番号":"103797","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"男気全開Go! Fight!!","選曲番号":"110566","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"Changing our Song!","選曲番号":"110567","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"TRUE WING","選曲番号":"725124","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"CHALLENGE!","選曲番号":"725302","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"すべてを歌にっ！","選曲番号":"674544","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"初恋をまた始めよう","選曲番号":"690018","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"翔ける軌跡","選曲番号":"444314","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"Sweet Kiss","選曲番号":"444313","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"来来☆オーライ","選曲番号":"499735","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"Dizzy Glow","選曲番号":"499734","グループ":"ST☆RISH"},{"アイドル":"翔","楽曲":"Let's be Happy!","選曲番号":"810320","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"DESTINY SONG","選曲番号":"100992","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"情熱のデジャヴキス","選曲番号":"145723","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"Eternity Love","選曲番号":"111284","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"夢と愛とアナタと","選曲番号":"111937","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"星のファンタジア","選曲番号":"726282","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"Happiness","選曲番号":"726018","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"GREEN AMBITION","選曲番号":"674543","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"甘美なるアルカディア","選曲番号":"690174","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"Crown of Agna","選曲番号":"445000","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"☆light ☆night","選曲番号":"444999","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"トリッドラヴ","選曲番号":"610092","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"Re:alive","選曲番号":"610091","グループ":"ST☆RISH"},{"アイドル":"セシル","楽曲":"Clear Sky Message","選曲番号":"812096","グループ":"ST☆RISH"},{"アイドル":"嶺二","楽曲":"溺愛テンプテーション","選曲番号":"730605","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"愛しき人へ","選曲番号":"738178","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"キスはウインクで","選曲番号":"738663","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"NEVER...","選曲番号":"674312","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"Hurray×2 ドリーマーズ","選曲番号":"675015","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"オン・ユア・マーク！","選曲番号":"695669","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"Alright, All night","選曲番号":"488745","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"Timepiece","選曲番号":"488744","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"Natural Identity","選曲番号":"810795","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"キラメキラッ☆","選曲番号":"817987","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"Drown in","選曲番号":"817988","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"零-Zero-","選曲番号":"820993","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"ワンダフルSMILE","選曲番号":"820994","グループ":"QUARTET NIGHT"},{"アイドル":"嶺二","楽曲":"Seize me if you can","選曲番号":"821640","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"BRIGHT ROAD","選曲番号":"731230","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"Not Bad","選曲番号":"313063","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"WILD SOUL","選曲番号":"312759","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"ONLY ONE","選曲番号":"673461","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"No.1","選曲番号":"674986","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"BE PROUD","選曲番号":"695820","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"Clap Hands!!","選曲番号":"488888","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"I LOVE & NEED YOU","選曲番号":"488887","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"SIMPLE","選曲番号":"811742","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"FULLTEN","選曲番号":"818247","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"MUSIC FOR LIFE","選曲番号":"818248","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"Black Panther","選曲番号":"820892","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"WINNER","選曲番号":"820893","グループ":"QUARTET NIGHT"},{"アイドル":"蘭丸","楽曲":"Force & Faith","選曲番号":"821641","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"Winter Blossom","選曲番号":"731095","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"A.I","選曲番号":"312589","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"二人のモノグラム","選曲番号":"313299","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"Innocent Wind","選曲番号":"673464","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"ムネノコドウ","選曲番号":"674119","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"シンクロニズム","選曲番号":"695816","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"ラヴ・エボル","選曲番号":"489290","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"Dream Maker","選曲番号":"489289","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"FLAKE HEART","選曲番号":"813033","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"夢奏 -むそう-","選曲番号":"818803","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"アンビバレント","選曲番号":"818802","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"Am I fairy or...?","選曲番号":"821077","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"紡ぐ日常","選曲番号":"821078","グループ":"QUARTET NIGHT"},{"アイドル":"藍","楽曲":"Wandering in a maze","選曲番号":"821642","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"絶対零度Emotion","選曲番号":"732558","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"純潔なる愛-Aspiration-","選曲番号":"313748","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"AURORA","選曲番号":"314257","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Saintly Territory","選曲番号":"673462","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Double face","選曲番号":"674973","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Melting of snow","選曲番号":"695668","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Sterward Dance","選曲番号":"489398","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"ALL MY MISSION","選曲番号":"489387","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Floating Labyrinth","選曲番号":"812638","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Pit a pat","選曲番号":"819039","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Frost Dream","選曲番号":"819040","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"氷道化師 -Ice Pierrot-","選曲番号":"821322","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Romantic days","選曲番号":"821323","グループ":"QUARTET NIGHT"},{"アイドル":"カミュ","楽曲":"Do you know who I'm","選曲番号":"821643","グループ":"QUARTET NIGHT"},{"アイドル":"瑛一","楽曲":"STATE OF PERFECTION","選曲番号":"691081","グループ":"HE★VENS"},{"アイドル":"瑛一","楽曲":"LIFE～with thanks～","選曲番号":"437985","グループ":"HE★VENS"},{"アイドル":"瑛一","楽曲":"暁の宴","選曲番号":"493630","グループ":"HE★VENS"},{"アイドル":"瑛一","楽曲":"First Time","選曲番号":"819900","グループ":"HE★VENS"},{"アイドル":"瑛一","楽曲":"Escort My Love","選曲番号":"xxxxxx","グループ":"HE★VENS"},{"アイドル":"綺羅","楽曲":"Dazzling darling","選曲番号":"691138","グループ":"HE★VENS"},{"アイドル":"綺羅","楽曲":"恋の温度–melt into one–","選曲番号":"437986","グループ":"HE★VENS"},{"アイドル":"綺羅","楽曲":"Morning in the sky","選曲番号":"493607","グループ":"HE★VENS"},{"アイドル":"綺羅","楽曲":"Embrace Ensemble","選曲番号":"819904","グループ":"HE★VENS"},{"アイドル":"綺羅","楽曲":"GIDDY SPIRAL","選曲番号":"xxxxxx","グループ":"HE★VENS"},{"アイドル":"ナギ","楽曲":"You're mine!","選曲番号":"690835","グループ":"HE★VENS"},{"アイドル":"ナギ","楽曲":"絶対的★N・A・G・I","選曲番号":"437987","グループ":"HE★VENS"},{"アイドル":"ナギ","楽曲":"Lovable midday","選曲番号":"493606","グループ":"HE★VENS"},{"アイドル":"ナギ","楽曲":"ボクだけのキミ　キミだけのボク","選曲番号":"819902","グループ":"HE★VENS"},{"アイドル":"ナギ","楽曲":"TRICKY♡CUTIE","選曲番号":"xxxxxx","グループ":"HE★VENS"},{"アイドル":"瑛二","楽曲":"Dreamer","選曲番号":"689928","グループ":"HE★VENS"},{"アイドル":"瑛二","楽曲":"Just You","選曲番号":"438003","グループ":"HE★VENS"},{"アイドル":"瑛二","楽曲":"宵闇Secret moon","選曲番号":"493604","グループ":"HE★VENS"},{"アイドル":"瑛二","楽曲":"Blooming Baby","選曲番号":"819898","グループ":"HE★VENS"},{"アイドル":"瑛二","楽曲":"花と 恋めぐる","選曲番号":"xxxxxx","グループ":"HE★VENS"},{"アイドル":"ヴァン","楽曲":"My cutie...Drive me crazy!","選曲番号":"690549","グループ":"HE★VENS"},{"アイドル":"ヴァン","楽曲":"熱愛中BANG×BANG×BANG!","選曲番号":"438004","グループ":"HE★VENS"},{"アイドル":"ヴァン","楽曲":"黄昏Hugging","選曲番号":"493628","グループ":"HE★VENS"},{"アイドル":"ヴァン","楽曲":"YOUR ADVENTURE!!","選曲番号":"819901","グループ":"HE★VENS"},{"アイドル":"ヴァン","楽曲":"Stormy Love","選曲番号":"xxxxxx","グループ":"HE★VENS"},{"アイドル":"大和","楽曲":"OVER THE TOP","選曲番号":"690019","グループ":"HE★VENS"},{"アイドル":"大和","楽曲":"人生 on Sparking!","選曲番号":"438005","グループ":"HE★VENS"},{"アイドル":"大和","楽曲":"オウマガトキ・メア","選曲番号":"493605","グループ":"HE★VENS"},{"アイドル":"大和","楽曲":"Dancing Escape","選曲番号":"819903","グループ":"HE★VENS"},{"アイドル":"大和","楽曲":"Sing up! Together!!","選曲番号":"xxxxxx","グループ":"HE★VENS"},{"アイドル":"シオン","楽曲":"導き光","選曲番号":"690175","グループ":"HE★VENS"},{"アイドル":"シオン","楽曲":"Lyrical Poetry","選曲番号":"438006","グループ":"HE★VENS"},{"アイドル":"シオン","楽曲":"黎明drops","選曲番号":"493629","グループ":"HE★VENS"},{"アイドル":"シオン","楽曲":"幾千のEvidence","選曲番号":"819899","グループ":"HE★VENS"},{"アイドル":"シオン","楽曲":"眩くは幾星霜","選曲番号":"xxxxxx","グループ":"HE★VENS"}];
+const memberColors = {"音也": "#FE3C48", "真斗": "#4D76F2", "那月": "#FFCA2B", "トキヤ": "#9247D8", "レン": "#FF8126", "翔": "#FF7CC2", "セシル": "#A4E263", "嶺二": "#4AC668", "蘭丸": "#CB305F", "藍": "#C5A0E5", "カミュ": "#90E0FB", "瑛一": "#FE3C48", "綺羅": "#4D76F2", "ナギ": "#FFCA2B", "瑛二": "#9247D8", "ヴァン": "#FF8126", "大和": "#FF7CC2", "シオン": "#A4E263"};
+const heavensMembers = ["瑛一", "綺羅", "ナギ", "瑛二", "ヴァン", "大和", "シオン"];
+const groups = {"ST☆RISH": ["音也", "真斗", "那月", "トキヤ", "レン", "翔", "セシル"], "QUARTET NIGHT": ["嶺二", "蘭丸", "藍", "カミュ"], "HE★VENS": ["瑛一", "綺羅", "ナギ", "瑛二", "ヴァン", "大和", "シオン"]};
+
+let history = [];
+let usedIndices = new Set();
+
+const container = document.getElementById('groups-container');
+
+Object.keys(groups).forEach((groupName, index) => {
+    const safeId = "group-" + index;
+    const section = document.createElement('div');
+    section.className = 'group-section';
+    section.innerHTML = `
+        <div class="group-header">
+            <input type="checkbox" id="master-${safeId}" checked onchange="toggleGroup('${safeId}', this.checked)">
+            <span>${groupName}</span>
+        </div>
+        <div class="idol-list" id="list-${safeId}"></div>
+    `;
+    container.appendChild(section);
+    
+    const idolList = document.getElementById('list-' + safeId);
+    groups[groupName].forEach(idol => {
+        const lbl = document.createElement('label');
+        lbl.innerHTML = `<input type="checkbox" value="${idol}" checked class="idol-checkbox item-${safeId}" onchange="onCheckChange('${safeId}')"> ${idol}`;
+        idolList.appendChild(lbl);
+    });
+});
+
+function updateCounter() {
+    const checkedIdols = Array.from(document.querySelectorAll('.idol-checkbox:checked')).map(cb => cb.value);
+    const totalCount = allSongs.filter(song => checkedIdols.includes(song.アイドル)).length;
+    const remainingCount = allSongs.filter((song, index) => checkedIdols.includes(song.アイドル) && !usedIndices.has(index)).length;
+    document.getElementById('counter').innerText = `残り ${remainingCount}曲 ／ 全 ${totalCount}曲`;
+}
+
+function toggleGroup(safeId, isChecked) {
+    document.querySelectorAll('.item-' + safeId).forEach(cb => cb.checked = isChecked);
+    updateCounter();
+}
+
+function onCheckChange(safeId) {
+    const cbs = document.querySelectorAll('.item-' + safeId);
+    document.getElementById('master-' + safeId).checked = Array.from(cbs).every(cb => cb.checked);
+    updateCounter();
+}
+
+function drawSong() {
+    const checkedIdols = Array.from(document.querySelectorAll('.idol-checkbox:checked')).map(cb => cb.value);
+    if (checkedIdols.length === 0) { alert("アイドルを選択してください"); return; }
+    const available = allSongs.map((s, i) => ({...s, idx: i})).filter(s => checkedIdols.includes(s.アイドル) && !usedIndices.has(s.idx));
+    if (available.length === 0) { alert("対象の曲がすべて抽選済みです。"); return; }
+    
+    const result = available[Math.floor(Math.random() * available.length)];
+    usedIndices.add(result.idx);
+    history.push(result);
+    
+    showResultModal(result);
+    updateCounter();
+}
+
+function showResultModal(song) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-content');
+    const overlay = document.getElementById('overlay');
+    const closeBtn = document.getElementById('modal-close-btn');
+    
+    const bgColor = memberColors[song.アイドル] || "#ccc";
+    const textColor = heavensMembers.includes(song.アイドル) ? "#083E70" : "#333";
+
+    modal.style.backgroundColor = bgColor;
+    closeBtn.style.color = textColor;
+    content.innerHTML = `
+        <div class="outline-text" style="font-size: 28px; margin-bottom: 12px; color:${textColor}">${song.楽曲}</div>
+        <div class="outline-text" style="font-size: 22px; margin-bottom: 20px; color:${textColor}">${song.アイドル}</div>
+        <div class="outline-text" style="font-size: 18px; color:${textColor}">No: ${song.選曲番号}</div>
+    `;
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+function showHistory() {
+    const hContent = document.getElementById('history-content');
+    if (history.length === 0) {
+        hContent.innerHTML = "<p style='text-align:center;'>履歴はありません</p>";
+    } else {
+        hContent.innerHTML = history.map((s, i) => `<div><b>${i+1}.</b> ${s.楽曲} / ${s.アイドル}</div>`).join('');
+    }
+    document.getElementById('history-modal').style.display = 'block';
+    document.getElementById('overlay').style.display = 'block';
+}
+
+function resetApp() {
+    if (confirm("抽選済みリストをリセットしますか？")) {
+        usedIndices.clear();
+        history = [];
+        updateCounter();
+    }
+}
+
+function closeModal() { document.getElementById('modal').style.display = 'none'; document.getElementById('overlay').style.display = 'none'; }
+function closeHistory() { document.getElementById('history-modal').style.display = 'none'; document.getElementById('overlay').style.display = 'none'; }
+function closeAllModals() { closeModal(); closeHistory(); }
+
+updateCounter();
+</script>
+
+</body>
+</html>
